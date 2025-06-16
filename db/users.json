@@ -1,0 +1,14 @@
+[
+  {
+    "id": "001",
+    "firstName": "Enzo",
+    "lastName": "Prados",
+    "username": "enzo.prados",
+    "email": "enzo.prados@gmail.com",
+    "avatarUrl": "https://placehold.co/100x100.png",
+    "role": "Owner",
+    "password": "@Banane123",
+    "tags": ["admin", "owner"],
+    "lastLogin": "2024-01-01T10:00:00.000Z"
+  }
+]

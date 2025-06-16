@@ -22,13 +22,13 @@ import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }), // Allow any password for demo if DB has no password
+  password: z.string().min(1, { message: "Password is required." }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const { login, loading: authLoading } = useAuth(); // Renamed loading to authLoading to avoid conflict
+  const { login, loading: authLoading } = useAuth();
   const [isMounted, setIsMounted] = React.useState(false);
   const { toast } = useToast();
 
@@ -112,9 +112,9 @@ export default function LoginPage() {
             </form>
           </Form>
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            Need access?{" "}
             <a href="#" className="font-medium text-primary hover:underline">
-              Contact Admin
+              Contact Admin for an invitation.
             </a>
           </p>
         </CardContent>

@@ -12,10 +12,14 @@ export type UserRole =
 
 export interface User {
   id: string;
-  name: string;
+  firstName?: string;
+  lastName?: string;
+  name: string; // Full name, can be derived from firstName and lastName or explicitly set
+  username?: string;
   email: string;
   avatarUrl?: string;
   role: UserRole;
+  tags?: string[];
   lastLogin?: string; // ISO date string
 }
 
@@ -74,6 +78,7 @@ export interface SharedFile {
   uploadedBy: User;
   uploadDate: string; // ISO date string
   url: string;
+  "data-ai-hint"?: string;
 }
 
 export interface KnowledgeBaseArticle {

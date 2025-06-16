@@ -36,13 +36,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     setLoading(true);
-    const result = await authenticateUser(email, password); // Call the Server Action
+    // The authenticateUser Server Action will now simulate reading from your DB (via users.json placeholder)
+    const result = await authenticateUser(email, password); 
     
     if (result.user) {
-      const userWithLastLogin = { ...result.user, lastLogin: new Date().toISOString() };
-      setUser(userWithLastLogin);
+      // Ensure derived 'name' field is populated if firstName and lastName exist
+      const userToStore: User = {
+        ...result.user,
+        name: (result.user.firstName && result.user.lastName) 
+              ? `${result.user.firstName} ${result.user.lastName}` 
+              : result.user.name || result.user.email, // Fallback to existing name or email
+        lastLogin: new Date().toISOString() // Update lastLogin on successful login
+      };
+      
+      setUser(userToStore);
       try {
-        localStorage.setItem('tensorflow-user', JSON.stringify(userWithLastLogin));
+        localStorage.setItem('tensorflow-user', JSON.stringify(userToStore));
       } catch (error) {
         console.error("Failed to save user to localStorage", error);
       }
