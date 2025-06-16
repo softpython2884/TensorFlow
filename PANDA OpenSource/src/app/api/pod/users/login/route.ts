@@ -1,10 +1,15 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import { comparePassword, generateToken } from '@/lib/auth';
-import { UserLoginSchema } from '@/lib/schemas';
+import { 
+    comparePassword, 
+    generateToken, 
+    findUserByEmail, 
+    updateUserLastLogin,
+    type AuthenticatedUser // Use AuthenticatedUser for token payload
+} from '@/lib/auth';
+import { UserLoginSchema, UserRoleSchema } from '@/lib/schemas';
 import { ZodError } from 'zod';
-import type { AuthenticatedUser } from '@/lib/auth'; // Import AuthenticatedUser type
+import type { UserRole } from '@/lib/schemas';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,20 +22,10 @@ export async function POST(request: NextRequest) {
     
     const { email, password } = validationResult.data;
 
-    const userFromDb = db.prepare(
-      'SELECT id, email, password_hash, username, firstName, lastName, role FROM users WHERE email = ?'
-    ).get(email) as { 
-        id: string; 
-        email: string; 
-        password_hash: string; 
-        username: string | null;
-        firstName: string | null;
-        lastName: string | null;
-        role: AuthenticatedUser['role']; // Use the role type from AuthenticatedUser
-    } | undefined;
+    const userFromDb = await findUserByEmail(email);
 
-    if (!userFromDb) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    if (!userFromDb || !userFromDb.password_hash) {
+      return NextResponse.json({ error: 'Invalid credentials or user setup issue' }, { status: 401 });
     }
 
     const passwordMatch = await comparePassword(password, userFromDb.password_hash);
@@ -38,36 +33,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Construct the user object to be returned and included in the token
-    const userPayload: AuthenticatedUser & { username?: string, firstName?: string | null, lastName?: string | null } = {
+    // Validate role from DB against UserRoleSchema
+    const parsedRoleResult = UserRoleSchema.safeParse(userFromDb.role);
+    if (!parsedRoleResult.success) {
+        console.error(`Invalid role '${userFromDb.role}' found for user ${userFromDb.email} in database.`);
+        return NextResponse.json({ error: 'User account configuration error.' }, { status: 500 });
+    }
+    const validRole: UserRole = parsedRoleResult.data;
+
+    // Construct the user object for the token and response
+    const userForToken: AuthenticatedUser = {
       id: userFromDb.id,
       email: userFromDb.email,
-      username: userFromDb.username || undefined, // Ensure undefined if null
+      username: userFromDb.username || undefined,
       firstName: userFromDb.firstName,
       lastName: userFromDb.lastName,
-      role: userFromDb.role || 'FREE', // Default to FREE if somehow null
+      // Construct a display name for the token if needed, or handle in frontend
+      name: (userFromDb.firstName || userFromDb.lastName) 
+            ? `${userFromDb.firstName || ''} ${userFromDb.lastName || ''}`.trim() 
+            : userFromDb.username || userFromDb.email,
+      role: validRole,
     };
     
-    const token = await generateToken({ 
-        id: userPayload.id, 
-        email: userPayload.email, 
-        role: userPayload.role 
-        // Note: username, firstName, lastName are not typically part of the JWT payload for size/security,
-        // they are fetched by /api/auth/me. The login response body will contain them.
-    });
+    const token = await generateToken(userForToken);
 
-    // The response body contains the full user profile for immediate use by the client
+    await updateUserLastLogin(userFromDb.id);
+    
+    // Return the same user object structure as in token for consistency in BFF
     return NextResponse.json({ 
         message: 'Login successful', 
         token, 
-        user: userPayload // Send the full user object in the response body
+        user: userForToken
     });
 
   } catch (error) {
      if (error instanceof ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid input during processing', details: error.flatten() }, { status: 400 });
     }
     console.error('Pod Login error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error in Pod' }, { status: 500 });
   }
 }

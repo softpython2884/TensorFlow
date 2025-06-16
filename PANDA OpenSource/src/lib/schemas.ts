@@ -11,6 +11,8 @@ export const UserRegistrationSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters long.").max(30, "Username must be 30 characters or less.").regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores."),
   email: z.string().email(),
   password: strongPassword,
+  firstName: z.string().max(50, "First name must be 50 characters or less.").optional().nullable(),
+  lastName: z.string().max(50, "Last name must be 50 characters or less.").optional().nullable(),
 });
 
 export const UserLoginSchema = z.object({
@@ -24,7 +26,7 @@ export const UserProfileUpdateSchema = z.object({
     lastName: z.string().max(50, "Last name must be 50 characters or less.").optional().nullable(),
 });
 
-
+// Environment variables for FRP/PANDA Tunnels (Pod layer interacts with these concepts)
 const envFrpServerAddr = process.env.NEXT_PUBLIC_FRP_SERVER_ADDR;
 export const FRP_SERVER_ADDR = (envFrpServerAddr && envFrpServerAddr.trim() !== "") ? envFrpServerAddr.trim() : "panda.nationquest.fr";
 
@@ -40,8 +42,21 @@ export const FRP_SERVER_BASE_DOMAIN = (envFrpBaseDomain && envFrpBaseDomain.trim
 const envPandaTunnelMainHost = process.env.PANDA_TUNNEL_MAIN_HOST;
 export const PANDA_TUNNEL_MAIN_HOST = (envPandaTunnelMainHost && envPandaTunnelMainHost.trim() !== "") ? envPandaTunnelMainHost.trim() : undefined;
 
-const envPandaAdminEmail = process.env.PANDA_ADMIN_EMAIL;
-export const PANDA_ADMIN_EMAIL = (envPandaAdminEmail && envPandaAdminEmail.trim() !== "") ? envPandaAdminEmail.trim() : undefined;
+// Renamed PANDA_ADMIN_EMAIL to a more generic ADMIN_EMAIL for TensorFlow context if needed,
+// but keeping PANDA_ADMIN_EMAIL as it's used in the provided db.ts logic for PANDA.
+// If this app is truly "TensorFlow", these should ideally be TENSORFLOW_ADMIN_EMAIL.
+// For now, aligning with PANDA's db.ts.
+const envPandaAdminEmail = process.env.PANDA_ADMIN_EMAIL || process.env.ADMIN_EMAIL;
+export const PANDA_ADMIN_EMAIL = (envPandaAdminEmail && envPandaAdminEmail.trim() !== "") ? envPandaAdminEmail.trim() : "enzo.prados@gmail.com"; // Defaulting for TensorFlow
+
+const envPandaAdminPassword = process.env.PANDA_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+export const PANDA_ADMIN_PASSWORD = (envPandaAdminPassword && envPandaAdminPassword.trim() !== "") ? envPandaAdminPassword.trim() : "@Banane123"; // Defaulting
+
+export const ADMIN_ID = process.env.ADMIN_ID || "001-tf-admin";
+export const ADMIN_FIRSTNAME = process.env.ADMIN_FIRSTNAME || "Enzo";
+export const ADMIN_LASTNAME = process.env.ADMIN_LASTNAME || "Prados";
+export const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "enzo.prados";
+
 
 const envDiscordGeneralWebhookUrl = process.env.DISCORD_GENERAL_WEBHOOK_URL;
 export const DISCORD_GENERAL_WEBHOOK_URL = (envDiscordGeneralWebhookUrl && envDiscordGeneralWebhookUrl.trim() !== "") ? envDiscordGeneralWebhookUrl.trim() : undefined;
@@ -102,7 +117,7 @@ export const CloudSpaceSchema = CloudSpaceCreateSchema.extend({
   userId: z.string().uuid(),
   discordWebhookUrl: z.string().url().nullable(),
   discordChannelId: z.string().nullable(),
-  createdAt: z.string(), // Keep as string, client will parse
+  createdAt: z.string(), 
 });
 export type CloudSpace = z.infer<typeof CloudSpaceSchema>;
 
@@ -120,15 +135,16 @@ export type FrpServiceInput = z.infer<typeof FrpServiceSchema>;
 export type ServiceInput = FrpServiceInput;
 
 
-export const UserRoleSchema = z.enum(['FREE', 'PREMIUM', 'PREMIUM_PLUS', 'ENDIUM', 'ADMIN']);
+export const UserRoleSchema = z.enum(['FREE', 'PREMIUM', 'PREMIUM_PLUS', 'ENDIUM', 'ADMIN', 'Owner']); // Added Owner based on types
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
 export const UserRoleDisplayConfig: Record<UserRole, { label: string; className: string }> = {
-  FREE: { label: "Free Panda", className: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500" },
-  PREMIUM: { label: "Premium Panda", className: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-700 dark:text-blue-100 dark:border-blue-500" },
-  PREMIUM_PLUS: { label: "Panda Premium+", className: "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-700 dark:text-purple-100 dark:border-purple-500" },
-  ENDIUM: { label: "Panda Endium", className: "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-600 dark:text-yellow-100 dark:border-yellow-500" },
-  ADMIN: { label: "Admin Panda", className: "bg-destructive text-destructive-foreground border-destructive/50" },
+  FREE: { label: "Free Tier", className: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500" },
+  PREMIUM: { label: "Premium Tier", className: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-700 dark:text-blue-100 dark:border-blue-500" },
+  PREMIUM_PLUS: { label: "Premium+ Tier", className: "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-700 dark:text-purple-100 dark:border-purple-500" },
+  ENDIUM: { label: "Endium Tier", className: "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-600 dark:text-yellow-100 dark:border-yellow-500" },
+  ADMIN: { label: "Administrator", className: "bg-red-100 text-red-700 border-red-300 dark:bg-red-700 dark:text-red-100 dark:border-red-500" },
+  Owner: { label: "Owner", className: "bg-destructive text-destructive-foreground border-destructive/50" },
 };
 
 
@@ -154,7 +170,7 @@ export type ApiTokenDisplay = z.infer<typeof ApiTokenDisplaySchema>;
 
 export const RolesConfig = {
   FREE: {
-    label: "Free Panda",
+    label: "Free Tier",
     maxTunnels: 2,
     maxCloudServers: 1,
     maxCustomProxies: 1,
@@ -167,46 +183,59 @@ export const RolesConfig = {
     canUseVMs: false,
   },
   PREMIUM: {
-    label: "Premium Panda",
+    label: "Premium Tier",
     maxTunnels: 10,
     maxCloudServers: 3,
     maxCustomProxies: 3,
     maxMiniServers: 3,
     maxApiAICallsPerDay: 1000,
-    maxVpnConnections: 1, // Premium gets basic VPN
+    maxVpnConnections: 1, 
     canUseCustomDnsSubdomains: true,
     canUseOwnDomains: false,
     canUseWebmail: false,
     canUseVMs: false,
   },
   PREMIUM_PLUS: {
-    label: "Panda Premium+",
+    label: "Premium+ Tier",
     maxTunnels: 25,
     maxCloudServers: Infinity,
     maxCustomProxies: 5,
     maxMiniServers: 5,
     maxApiAICallsPerDay: 5000,
-    maxVpnConnections: 1, // Premium+ gets advanced VPN
+    maxVpnConnections: 1,
     canUseCustomDnsSubdomains: true,
     canUseOwnDomains: false,
     canUseWebmail: false,
     canUseVMs: false,
   },
   ENDIUM: {
-    label: "Panda Endium",
+    label: "Endium Tier",
     maxTunnels: Infinity,
     maxCloudServers: Infinity,
     maxCustomProxies: 10,
     maxMiniServers: 10,
     maxApiAICallsPerDay: 20000,
-    maxVpnConnections: 1, // Endium gets enterprise VPN
+    maxVpnConnections: 1, 
     canUseCustomDnsSubdomains: true,
     canUseOwnDomains: true,
     canUseWebmail: true,
     canUseVMs: true,
   },
   ADMIN: {
-    label: "Admin Panda",
+    label: "Administrator",
+    maxTunnels: Infinity,
+    maxCloudServers: Infinity,
+    maxCustomProxies: Infinity,
+    maxMiniServers: Infinity,
+    maxApiAICallsPerDay: Infinity,
+    maxVpnConnections: Infinity,
+    canUseCustomDnsSubdomains: true,
+    canUseOwnDomains: true,
+    canUseWebmail: true,
+    canUseVMs: true,
+  },
+  Owner: { // Added Owner to RolesConfig
+    label: "Owner",
     maxTunnels: Infinity,
     maxCloudServers: Infinity,
     maxCustomProxies: Infinity,
@@ -240,4 +269,18 @@ export const NotificationDisplaySchema = NotificationSchema.extend({
 });
 export type NotificationDisplay = z.infer<typeof NotificationDisplaySchema>;
 
-    
+
+// General App Environment Variables
+export const JWT_SECRET = process.env.JWT_SECRET || 'your-fallback-jwt-secret-key-for-development-must-be-at-least-32-characters';
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'your-fallback-jwt-secret-key-for-development-must-be-at-least-32-characters') {
+  console.warn(
+    'CRITICAL WARNING: JWT_SECRET is not set to a secure value in production environment. Using fallback secret. THIS IS NOT SECURE FOR PRODUCTION.'
+  );
+}
+export const TOKEN_COOKIE_NAME = 'tensorflow_session_token'; // For TensorFlow app
+
+export const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'db', 'tensorflow_app.db');
+import path from 'path'; // Import path for DB_PATH
+
+// Pod API URL for BFF to call (could be self if deployed monolithically)
+export const POD_API_URL = process.env.POD_API_URL || (typeof window !== 'undefined' ? '' : `http://localhost:${process.env.PORT || 9002}`);

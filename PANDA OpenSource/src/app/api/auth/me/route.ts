@@ -1,51 +1,60 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { verifyToken, type AuthenticatedUser } from '@/lib/auth';
+import { verifyToken, type AuthenticatedUser } from '@/lib/auth'; // Using TensorFlow auth
+import { TOKEN_COOKIE_NAME } from '@/lib/schemas'; // Using TensorFlow schemas
+import db from '@/lib/db'; // Import db to fetch full user details
 
-const POD_API_URL = process.env.POD_API_URL || 'http://localhost:9002';
+const POD_API_URL = process.env.POD_API_URL || `http://localhost:${process.env.PORT || 9002}`; // Default for TensorFlow
 
 export async function GET(request: NextRequest) {
-  const tokenCookie = request.cookies.get('panda_session_token');
+  const tokenCookie = request.cookies.get(TOKEN_COOKIE_NAME);
 
   if (!tokenCookie || !tokenCookie.value) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
   const sessionToken = tokenCookie.value;
 
-  const decodedUser = await verifyToken<AuthenticatedUser>(sessionToken);
+  const decodedUserFromToken = await verifyToken<AuthenticatedUser>(sessionToken);
 
-  if (!decodedUser) {
+  if (!decodedUserFromToken || !decodedUserFromToken.id) {
     const response = NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-    response.cookies.set('panda_session_token', '', { maxAge: 0, path: '/' });
+    response.cookies.set(TOKEN_COOKIE_NAME, '', { maxAge: 0, path: '/' }); // Clear bad cookie
     return response;
   }
 
-  // Now fetch full user profile from the Pod using the session token
-  try {
-    const podResponse = await fetch(`${POD_API_URL}/api/pod/users/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${sessionToken}`, // Pass the original session token to the Pod
-        'Content-Type': 'application/json',
-      },
-    });
+  // Fetch full, up-to-date user profile from the Pod layer (which uses DB)
+  // This ensures role or other details are fresh.
+  // In PANDA, this might call /api/pod/users/me. Here, we'll replicate the logic directly for simplicity
+  // if /api/pod/users/me is not yet implemented or to avoid BFF-to-Pod-to-DB for this simple case.
+  // For a stricter PANDA architecture, this BFF would call the Pod's /api/pod/users/me.
 
-    if (!podResponse.ok) {
-      const errorData = await podResponse.json().catch(() => ({}));
-      // If Pod says token is invalid (e.g., user deleted but token still exists), log out client
-      if (podResponse.status === 401 || podResponse.status === 404) {
-          const response = NextResponse.json({ error: errorData.error || 'User session invalid at Pod' }, { status: 401 });
-          response.cookies.set('panda_session_token', '', { maxAge: 0, path: '/' });
-          return response;
-      }
-      return NextResponse.json({ error: errorData.error || 'Failed to fetch user profile from Pod' }, { status: podResponse.status });
+  try {
+    // Directly query the DB for the user using the ID from the token.
+    // This is what /api/pod/users/me would effectively do.
+    const userFromDb = db.prepare(
+      'SELECT id, email, username, firstName, lastName, role FROM users WHERE id = ?'
+    ).get(decodedUserFromToken.id) as Omit<AuthenticatedUser, 'name'> | undefined;
+
+    if (!userFromDb) {
+      console.warn(`User ID ${decodedUserFromToken.id} from token not found in DB. Logging out.`);
+      const response = NextResponse.json({ error: 'User not found in database' }, { status: 401 });
+      response.cookies.set(TOKEN_COOKIE_NAME, '', { maxAge: 0, path: '/' });
+      return response;
     }
 
-    const podData = await podResponse.json();
-    return NextResponse.json({ user: podData.user });
+    const userToReturn: AuthenticatedUser = {
+        ...userFromDb,
+        name: (userFromDb.firstName || userFromDb.lastName) 
+            ? `${userFromDb.firstName || ''} ${userFromDb.lastName || ''}`.trim() 
+            : userFromDb.username || userFromDb.email,
+        // Ensure role is correctly typed if it comes as string from DB
+        role: userFromDb.role as AuthenticatedUser['role'], 
+    };
+    
+    return NextResponse.json({ user: userToReturn });
 
   } catch (error) {
-    console.error('BFF /me error fetching from Pod:', error);
+    console.error('BFF /me error fetching from DB:', error);
     return NextResponse.json({ error: 'Internal server error while fetching user profile' }, { status: 500 });
   }
 }
