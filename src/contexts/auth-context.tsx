@@ -1,12 +1,13 @@
 "use client";
 
-import type { User, UserRole } from '@/lib/types';
+import type { User } from '@/lib/types';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { authenticateUser } from '@/lib/auth.actions'; // Import the Server Action
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, role?: UserRole) => void;
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   loading: boolean;
   isAuthenticated: boolean;
@@ -14,24 +15,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user data - in a real app, this would come from an API
-const MOCK_USERS: Record<string, User> = {
-  "owner@example.com": { id: '1', name: 'Taylor Flow', email: 'owner@example.com', role: 'Owner', avatarUrl: 'https://placehold.co/100x100.png' },
-  "manager@example.com": { id: '2', name: 'Morgan Projector', email: 'manager@example.com', role: 'Project Manager', avatarUrl: 'https://placehold.co/100x100.png' },
-  "dev@example.com": { id: '3', name: 'Casey Coder', email: 'dev@example.com', role: 'Developer', avatarUrl: 'https://placehold.co/100x100.png' },
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // Try to load user from localStorage (simulate session persistence)
     try {
       const storedUser = localStorage.getItem('tensorflow-user');
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
+        const parsedUser: User = JSON.parse(storedUser);
+        setUser(parsedUser);
       }
     } catch (error) {
       console.error("Failed to parse user from localStorage", error);
@@ -40,27 +34,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = (email: string, role?: UserRole) => {
+  const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const foundUser = MOCK_USERS[email] || { 
-        id: 'temp-user', 
-        name: email.split('@')[0], 
-        email, 
-        role: role || 'Viewer', 
-        avatarUrl: 'https://placehold.co/100x100.png' 
-      };
-      
-      setUser(foundUser);
+    const result = await authenticateUser(email, password); // Call the Server Action
+    
+    if (result.user) {
+      const userWithLastLogin = { ...result.user, lastLogin: new Date().toISOString() };
+      setUser(userWithLastLogin);
       try {
-        localStorage.setItem('tensorflow-user', JSON.stringify(foundUser));
+        localStorage.setItem('tensorflow-user', JSON.stringify(userWithLastLogin));
       } catch (error) {
         console.error("Failed to save user to localStorage", error);
       }
       setLoading(false);
       router.push('/dashboard');
-    }, 500);
+      return { success: true };
+    } else {
+      setUser(null);
+      try {
+        localStorage.removeItem('tensorflow-user');
+      } catch (error) {
+        console.error("Failed to remove user from localStorage during failed login", error);
+      }
+      setLoading(false);
+      return { success: false, error: result.error };
+    }
   };
 
   const logout = () => {

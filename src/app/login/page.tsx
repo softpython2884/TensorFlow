@@ -16,23 +16,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, Layers } from "lucide-react"; // Layers for TensorFlow logo
-import { USER_ROLES } from "@/lib/constants";
-import type { UserRole } from "@/lib/types";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Layers } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  role: z.enum(USER_ROLES as [UserRole, ...UserRole[]]).optional()
+  password: z.string().min(1, { message: "Password is required." }), // Allow any password for demo if DB has no password
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const { login, loading } = useAuth();
+  const { login, loading: authLoading } = useAuth(); // Renamed loading to authLoading to avoid conflict
   const [isMounted, setIsMounted] = React.useState(false);
+  const { toast } = useToast();
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -44,12 +42,18 @@ export default function LoginPage() {
     defaultValues: {
       email: "",
       password: "",
-      role: "Developer", // Default role for mock login
     },
   });
 
-  function onSubmit(values: LoginFormValues) {
-    login(values.email, values.role);
+  async function onSubmit(values: LoginFormValues) {
+    const result = await login(values.email, values.password);
+    if (!result.success && result.error) {
+      toast({
+        title: "Login Failed",
+        description: result.error,
+        variant: "destructive",
+      });
+    }
   }
 
   if (!isMounted) {
@@ -101,32 +105,8 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role (for demo)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {USER_ROLES.map((role) => (
-                          <SelectItem key={role} value={role}>
-                            {role}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" className="w-full" disabled={authLoading || form.formState.isSubmitting}>
+                {(authLoading || form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign In
               </Button>
             </form>

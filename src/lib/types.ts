@@ -19,6 +19,11 @@ export interface User {
   lastLogin?: string; // ISO date string
 }
 
+// This type is for the server-side representation, including the password
+export interface UserWithPassword extends User {
+  password?: string; // Password should ideally be hashed
+}
+
 export interface NavItem {
   label: string;
   href: string;
