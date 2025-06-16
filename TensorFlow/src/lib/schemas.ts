@@ -1,6 +1,6 @@
 
 import { z } from "zod";
-import path from 'path'; // Import path for DB_PATH
+import path from 'path';
 
 // --- User Roles ---
 export const UserRoleSchema = z.enum(['FREE', 'PREMIUM', 'PREMIUM_PLUS', 'ENDIUM', 'ADMIN', 'Owner', 'Project Manager', 'Moderator', 'Developer', 'Builder', 'Designer', 'Community Manager', 'Viewer']);
@@ -36,7 +36,6 @@ export const UserRegistrationSchema = z.object({
   password: strongPassword,
   firstName: z.string().max(50, "First name must be 50 characters or less.").optional().nullable(),
   lastName: z.string().max(50, "Last name must be 50 characters or less.").optional().nullable(),
-  // role is not set during general registration; defaults to 'FREE' in DB or assigned by admin
 });
 export type UserRegistrationInput = z.infer<typeof UserRegistrationSchema>;
 
@@ -66,54 +65,53 @@ export type UserProfileUpdateInput = z.infer<typeof UserProfileUpdateSchema>;
 // --- Environment Variable Management ---
 export const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default(typeof window !== 'undefined' ? window.location.origin : "http://localhost:9002"),
-  JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters long"),
-  DB_PATH: z.string().optional(), // Will default in db.ts if not provided
+  JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters long"), // Changed from JWT_SECRET_KEY
+  DB_PATH: z.string().optional(),
 
-  // Admin User Initial Setup (optional, can be created via secret page if not set)
   ADMIN_EMAIL: z.string().email().optional(),
-  ADMIN_PASSWORD: z.string().min(1).optional(), // Min 1 for env, actual strength handled by password policy if set via form
+  ADMIN_PASSWORD: z.string().min(1).optional(),
   ADMIN_ID: z.string().optional(),
   ADMIN_FIRSTNAME: z.string().optional(),
   ADMIN_LASTNAME: z.string().optional(),
   ADMIN_USERNAME: z.string().optional(),
-  ADMIN_ROLE: UserRoleSchema.optional(), // Validates against UserRole enum
-
-  // TensorFlow specific vars (if any in future, PANDA ones removed)
+  ADMIN_ROLE: UserRoleSchema.optional(),
 });
 
 let parsedEnv: z.infer<typeof envSchema>;
 
-if (typeof window === "undefined") { // Server-side or build process
+if (typeof window === "undefined") {
   try {
     parsedEnv = envSchema.parse(process.env);
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error("❌ Invalid environment variables:", error.flatten().fieldErrors);
-      if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
-        throw new Error("FATAL: JWT_SECRET is not defined in production environment.");
+      // Check specifically for JWT_SECRET during production
+      if (process.env.NODE_ENV === "production" && (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)) {
+        throw new Error("FATAL: JWT_SECRET is not defined or is too short in production environment.");
       }
     }
-    // Fallback to process.env if parsing fails but critical vars might be missing
-    // This allows build to proceed with warnings for non-critical missing vars
-    parsedEnv = process.env as any; 
-    if (!parsedEnv.JWT_SECRET && process.env.NODE_ENV !== 'test') { // Allow tests without JWT_SECRET
+    // Fallback to process.env but ensure JWT_SECRET has a default for dev if not set
+    parsedEnv = { ...process.env } as any; // Use spread to avoid modifying process.env directly
+    if (!parsedEnv.JWT_SECRET && process.env.NODE_ENV !== 'test') {
         console.warn("WARNING: JWT_SECRET is not defined. Using a default insecure key for development. THIS IS NOT SAFE FOR PRODUCTION.");
         parsedEnv.JWT_SECRET = "default_insecure_jwt_secret_key_for_dev_must_be_32_chars_long";
     }
+     if (!parsedEnv.NEXT_PUBLIC_APP_URL) {
+        parsedEnv.NEXT_PUBLIC_APP_URL = "http://localhost:9002";
+    }
   }
-} else { // Client-side
+} else {
   parsedEnv = {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || window.location.origin,
-    // Client doesn't need direct access to server-side env vars like JWT_SECRET or DB_PATH
+    // Client does not need server-side secrets
   } as any;
 }
 
 export const ENV = parsedEnv;
 
-// Ensure JWT_SECRET is at least 32 chars if using the default fallback (mainly for dev safety)
-if (ENV.JWT_SECRET === "default_insecure_jwt_secret_key_for_dev_must_be_32_chars_long" && ENV.JWT_SECRET.length < 32) {
+if (ENV.JWT_SECRET === "default_insecure_jwt_secret_key_for_dev_must_be_32_chars_long" && ENV.JWT_SECRET.length < 32 && typeof window === "undefined") {
     console.error("FATAL: Default JWT_SECRET is too short. It must be at least 32 characters.");
-    // process.exit(1); // Consider exiting in a real app if security is paramount
+    // In a real app, you might want to process.exit(1) here if JWT_SECRET is critical for startup
 }
 
 
@@ -136,4 +134,38 @@ export const ApiTokenDisplaySchema = z.object({
     expiresAt: z.string().datetime().nullable(),
     createdAt: z.string().datetime(),
 });
-export type ApiTokenDisplay = z
+export type ApiTokenDisplay = z.infer<typeof ApiTokenDisplaySchema>;
+
+// Project and Task Schemas (Basic for now)
+export const ProjectSchema = z.object({
+    id: z.string().uuid(),
+    name: z.string().min(3, "Project name is too short").max(100, "Project name is too long"),
+    description: z.string().max(1000, "Description is too long").optional().nullable(),
+    ownerId: z.string().uuid(),
+    status: z.string().default("Active"), // Example: Active, Paused, Completed
+    progression: z.number().min(0).max(100).default(0),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    dueDate: z.string().datetime().optional().nullable(),
+});
+export type ProjectInput = z.infer<typeof ProjectSchema>;
+
+
+export const TaskStatusSchema = z.enum(["To Do", "In Progress", "In Review", "Done"]);
+export const TaskPrioritySchema = z.enum(["Low", "Medium", "High"]);
+
+export const TaskSchema = z.object({
+    id: z.string().uuid(),
+    projectId: z.string().uuid(),
+    title: z.string().min(3, "Task title too short").max(200, "Task title too long"),
+    description: z.string().max(2000, "Task description too long").optional().nullable(),
+    status: TaskStatusSchema.default("To Do"),
+    assigneeId: z.string().uuid().optional().nullable(),
+    reporterId: z.string().uuid().optional().nullable(),
+    dueDate: z.string().datetime().optional().nullable(),
+    priority: TaskPrioritySchema.default("Medium"),
+    tags: z.array(z.string()).optional().nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+});
+export type TaskInput = z.infer<typeof TaskSchema>;

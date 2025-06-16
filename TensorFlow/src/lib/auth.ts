@@ -1,12 +1,13 @@
+
 import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import type { NextRequest } from 'next/server';
 import type { UserRole, UserRegistrationInput, UserProfileUpdateInput, SuperAdminCreationInput } from './schemas';
-import { ENV, TOKEN_COOKIE_NAME } from './schemas';
+import { ENV, TOKEN_COOKIE_NAME } from './schemas'; // ENV now provides JWT_SECRET
 import db from './db';
 import type { User, UserWithPassword } from './types';
 
-const JWT_SECRET_UINT8ARRAY = new TextEncoder().encode(ENV.JWT_SECRET);
+const JWT_SECRET_UINT8ARRAY = new TextEncoder().encode(ENV.JWT_SECRET); // Use ENV.JWT_SECRET
 const SALT_ROUNDS = 10;
 
 export async function hashPassword(password: string): Promise<string> {
@@ -18,6 +19,10 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export async function generateToken(payload: Pick<User, 'id' | 'email' | 'role' | 'name' | 'username' | 'firstName' | 'lastName'>, expiresIn: string = '7d'): Promise<string> {
+  if (!ENV.JWT_SECRET || ENV.JWT_SECRET.length < 32) {
+    console.error("JWT_SECRET is not defined or too short in ENV. It must be at least 32 characters.");
+    throw new Error("JWT_SECRET is not configured correctly for token generation.");
+  }
   const token = await new SignJWT(payload as any) 
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -28,6 +33,10 @@ export async function generateToken(payload: Pick<User, 'id' | 'email' | 'role' 
 
 export async function verifyToken<T extends object = User>(token: string): Promise<T | null> {
   try {
+    if (!ENV.JWT_SECRET || ENV.JWT_SECRET.length < 32) {
+      console.error("JWT_SECRET is not defined or too short in ENV for token verification.");
+      throw new Error("JWT_SECRET is not configured correctly for token verification.");
+    }
     const { payload } = await jwtVerify(token, JWT_SECRET_UINT8ARRAY);
     return payload as T;
   } catch (error) {
@@ -62,7 +71,7 @@ export async function findUserById(id: string): Promise<UserWithPassword | null>
 
 export async function createUser(data: UserRegistrationInput | SuperAdminCreationInput): Promise<UserWithPassword> {
   const { email, username, password, firstName, lastName } = data;
-  const role = 'role' in data && data.role ? data.role : 'FREE'; // Default to 'FREE' if not specified (e.g. super admin creation)
+  const role = 'role' in data && data.role ? data.role : 'FREE'; 
 
   const hashedPassword = await hashPassword(password);
   const userId = crypto.randomUUID();
@@ -71,7 +80,7 @@ export async function createUser(data: UserRegistrationInput | SuperAdminCreatio
     const stmt = db.prepare(
       'INSERT INTO users (id, email, username, firstName, lastName, password_hash, role, created_at, tags, avatarUrl) VALUES (?, ?, ?, ?, ?, ?, ?, datetime(\'now\'), ?, ?)'
     );
-    stmt.run(userId, email.toLowerCase(), username || null, firstName || null, lastName || null, hashedPassword, role, JSON.stringify([]), null); // Default empty tags array and null avatar
+    stmt.run(userId, email.toLowerCase(), username || null, firstName || null, lastName || null, hashedPassword, role, JSON.stringify([]), null);
     
     const newUser = await findUserById(userId);
     if (!newUser) throw new Error("Failed to retrieve newly created user.");
@@ -100,7 +109,7 @@ export async function updateUserLastLogin(userId: string): Promise<void> {
 export async function getAllUsers(): Promise<User[]> {
     try {
         const stmt = db.prepare('SELECT id, email, username, firstName, lastName, role, avatarUrl, tags, lastLogin, created_at FROM users ORDER BY created_at DESC');
-        const usersFromDb = stmt.all() as any[]; // Cast to any and then map
+        const usersFromDb = stmt.all() as any[];
         return usersFromDb.map(u => ({
             ...u,
             name: (u.firstName || u.lastName) ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : u.username || u.email,
@@ -117,7 +126,7 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<Us
         const stmt = db.prepare('UPDATE users SET role = ? WHERE id = ?');
         const result = stmt.run(role, userId);
         if (result.changes === 0) {
-            return null; // User not found or role unchanged
+            return null;
         }
         const updatedUserRaw = await findUserById(userId);
         if (!updatedUserRaw) return null;
@@ -141,7 +150,7 @@ export async function updateUserProfile(userId: string, data: UserProfileUpdateI
 
     if (username !== undefined) {
         fieldsToUpdate.push("username = ?");
-        valuesToUpdate.push(username || null); // Allow unsetting username
+        valuesToUpdate.push(username || null);
     }
     if (firstName !== undefined) {
         fieldsToUpdate.push("firstName = ?");
@@ -176,7 +185,7 @@ export async function updateUserProfile(userId: string, data: UserProfileUpdateI
     const query = `UPDATE users SET ${fieldsToUpdate.join(", ")} WHERE id = ?`;
 
     try {
-        if (username) { // Check for username uniqueness if it's being set/changed
+        if (username) {
             const existingUser = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(username, userId);
             if (existingUser) {
                 throw new Error('Username already taken.');
@@ -209,10 +218,9 @@ export async function countOwners(): Promise<number> {
     return result.count;
   } catch (error) {
     console.error("SQLite Error (countOwners):", error);
-    return 0; // Default to 0 on error, implying no owners found or DB issue
+    return 0;
   }
 }
-// --- End SQLite Integrated User Functions ---
 
 export async function getUserFromRequest(request: NextRequest): Promise<User | null> {
   const token = await getJwtFromRequest(request);
