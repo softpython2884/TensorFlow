@@ -4,87 +4,100 @@ import fs from 'fs/promises';
 import path from 'path';
 import type { User, UserWithPassword } from '@/lib/types';
 
-const USERS_DB_PATH = path.join(process.cwd(), 'db', 'users.json');
+// CHEMIN VERS VOTRE PLACEHOLDER JSON (à remplacer par votre logique DB)
+const USERS_DB_PLACEHOLDER_PATH = path.join(process.cwd(), 'db', 'users.json');
 
-// SIMULATES Reading from SQLite users table
-async function getUsersFromDbPlaceholder(): Promise<UserWithPassword[]> {
+// SIMULE la lecture depuis une base de données.
+// TODO: ICI, remplacez cette fonction par votre code Node.js pour lire depuis SQLite.
+async function getUsersFromDb(): Promise<UserWithPassword[]> {
   try {
-    // In a real scenario, this would be:
-    // const db = require('your-sqlite-library').open(DB_PATH);
-    // const users = await db.all('SELECT * FROM users');
-    // await db.close();
-    // return users;
-    const data = await fs.readFile(USERS_DB_PATH, 'utf-8');
-    return JSON.parse(data) as UserWithPassword[];
+    // Logique pour lire depuis db/users.json (PLACEHOLDER)
+    const data = await fs.readFile(USERS_DB_PLACEHOLDER_PATH, 'utf-8');
+    const usersFromFile = JSON.parse(data) as UserWithPassword[];
+    return usersFromFile;
   } catch (error) {
-    console.error("Error reading from placeholder users.json (simulating DB read):", error);
-    // If the users.json file (placeholder for DB) doesn't exist or is invalid,
-    // it means the initial admin user setup is missing.
-    // For robust setup, you might want to initialize the DB or ensure the admin user exists.
-    // For now, we'll return an empty array, which will cause login to fail if file is missing.
+    console.error("Erreur lors de la lecture du fichier users.json (placeholder DB):", error);
+    // Si le fichier n'existe pas ou est invalide, et qu'aucun admin .env n'est défini, le login échouera.
     return [];
   }
 }
 
-// SIMULATES Writing to SQLite users table (e.g., for lastLogin update)
-async function saveUsersToDbPlaceholder(users: UserWithPassword[]): Promise<void> {
+// SIMULE la sauvegarde dans une base de données (ex: pour mettre à jour lastLogin).
+// TODO: ICI, remplacez cette fonction par votre code Node.js pour écrire dans SQLite.
+async function saveUsersToDb(users: UserWithPassword[]): Promise<void> {
   try {
-    // In a real scenario, this would be:
-    // const db = require('your-sqlite-library').open(DB_PATH);
-    // For updating lastLogin:
-    // await db.run('UPDATE users SET lastLogin = ? WHERE id = ?', [newLastLogin, userId]);
-    // For saving all users (less common for individual updates):
-    // users.forEach(user => db.run('UPDATE users SET ... WHERE id = ?', [...values, user.id]));
-    // await db.close();
-    await fs.writeFile(USERS_DB_PATH, JSON.stringify(users, null, 2), 'utf-8');
+    // Logique pour écrire dans db/users.json (PLACEHOLDER)
+    await fs.writeFile(USERS_DB_PLACEHOLDER_PATH, JSON.stringify(users, null, 2), 'utf-8');
   } catch (error) {
-    console.error("Error writing to placeholder users.json (simulating DB write):", error);
-    throw new Error("Could not save user data (placeholder).");
+    console.error("Erreur lors de l'écriture dans users.json (placeholder DB):", error);
+    throw new Error("Impossible de sauvegarder les données utilisateur (placeholder).");
   }
 }
 
 export async function authenticateUser(
-  email: string,
-  passwordInput?: string 
+  emailInput: string,
+  passwordInput?: string
 ): Promise<{ user: User; error?: null } | { user?: null; error: string }> {
-  // TODO: Replace this with your actual SQLite database query
-  const users = await getUsersFromDbPlaceholder(); 
-  const foundUser = users.find((u) => u.email === email);
+  
+  const usersFromDb = await getUsersFromDb();
+  let foundUser: UserWithPassword | undefined = usersFromDb.find((u) => u.email === emailInput);
+
+  // Logique pour l'admin par défaut via .env (si users.json est vide ou l'utilisateur n'y est pas)
+  // Cela est utile si vous initialisez votre DB SQLite sans cet utilisateur au début
+  // ou si vous préférez gérer l'admin principal via .env pour le développement.
+  if (!foundUser && process.env.ADMIN_EMAIL && emailInput === process.env.ADMIN_EMAIL) {
+    if (passwordInput === process.env.ADMIN_PASSWORD) {
+      foundUser = {
+        id: process.env.ADMIN_ID || "env-admin-001",
+        firstName: process.env.ADMIN_FIRSTNAME || "Admin",
+        lastName: process.env.ADMIN_LASTNAME || "User",
+        username: process.env.ADMIN_USERNAME || "admin_env",
+        email: process.env.ADMIN_EMAIL,
+        role: (process.env.ADMIN_ROLE as User["role"]) || "Owner",
+        password: process.env.ADMIN_PASSWORD, // Ne pas stocker en clair en production
+        avatarUrl: "https://placehold.co/100x100.png",
+        tags: ["admin", "owner", "env_configured"],
+        lastLogin: new Date().toISOString(),
+      };
+      // Optionnel : si l'utilisateur .env n'est pas dans users.json, on pourrait l'y ajouter
+      // pour la démo, mais dans un vrai cas SQLite, vous le géreriez via vos scripts d'initialisation DB.
+    }
+  }
 
   if (!foundUser) {
-    return { error: 'User not found.' };
+    return { error: 'Utilisateur non trouvé.' };
   }
 
-  // IMPORTANT: In a real application, passwords MUST be hashed.
-  // This is a simplified check for prototyping with the placeholder.
-  // When using SQLite, store hashed passwords and compare using a library like bcrypt.
-  // Example with bcrypt:
-  // const bcrypt = require('bcryptjs');
-  // const passwordIsValid = await bcrypt.compare(passwordInput, foundUser.passwordHash);
-  // if (!passwordIsValid) {
-  //   return { error: 'Invalid password.' };
-  // }
-
+  // IMPORTANT: En production, les mots de passe DOIVENT être hashés.
+  // Remplacez cette vérification par une comparaison de hash (ex: avec bcrypt).
+  // Exemple: const passwordIsValid = await bcrypt.compare(passwordInput, foundUser.passwordHash);
   if (foundUser.password && passwordInput !== foundUser.password) {
-     return { error: 'Invalid password.' };
+    return { error: 'Mot de passe invalide.' };
   }
-  
-  // If password matches (or if no password in DB for some reason, though admin should have one)
-  if (!foundUser.password || passwordInput === foundUser.password) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userToReturn } = foundUser; 
-    
-    // Update lastLogin
-    const updatedUser = { ...foundUser, lastLogin: new Date().toISOString() };
-    const userIndex = users.findIndex(u => u.id === updatedUser.id);
-    if (userIndex !== -1) {
-      users[userIndex] = updatedUser;
-      // TODO: Replace this with your actual SQLite database update for lastLogin
-      await saveUsersToDbPlaceholder(users); 
-    }
 
-    return { user: userToReturn as User };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { password, ...userToReturn } = foundUser;
+  const finalUserToReturn = {
+    ...userToReturn,
+    name: (userToReturn.firstName && userToReturn.lastName) 
+          ? `${userToReturn.firstName} ${userToReturn.lastName}`
+          : userToReturn.name || userToReturn.email,
+  } as User;
+
+
+  // Mise à jour de lastLogin
+  // TODO: Adaptez cette logique pour mettre à jour votre base de données SQLite.
+  const userIndexInDb = usersFromDb.findIndex(u => u.id === foundUser!.id);
+  if (userIndexInDb !== -1) {
+    usersFromDb[userIndexInDb].lastLogin = new Date().toISOString();
+    await saveUsersToDb(usersFromDb);
+  } else if (foundUser.email === process.env.ADMIN_EMAIL) {
+    // Si c'est l'utilisateur .env et qu'il n'était pas dans le JSON,
+    // on pourrait envisager de le "sauvegarder" s'il n'y a qu'un admin,
+    // mais pour SQLite, cela serait géré par une insertion si non existant.
+    // Pour l'instant, on ne fait rien ici pour le placeholder JSON dans ce cas spécifique.
+    console.log("Utilisateur admin via .env connecté, lastLogin non persisté dans users.json car non trouvé initialement.")
   }
   
-  return { error: 'Invalid credentials.' };
+  return { user: finalUserToReturn };
 }
