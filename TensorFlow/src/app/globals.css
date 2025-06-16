@@ -1,0 +1,94 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: var(--font-body), Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%; /* Light background - White */
+    --foreground: 240 10% 3.9%; /* Light foreground - Dark Gray */
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 217.2 91.2% 59.8%; /* TensorFlow Vivid Blue */
+    --primary-foreground: 210 40% 98%; /* Light Gray/White for text on primary */
+    --secondary: 240 4.8% 95.9%; /* Light Gray */
+    --secondary-foreground: 240 5.9% 10%; /* Dark Gray for text on secondary */
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%; /* Medium Gray */
+    --accent: 210 90% 70%; /* Lighter Blue for accents */
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 72.2% 50.6%; /* Adjusted destructive to a less intense red */
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%; /* Light Gray border */
+    --input: 240 5.9% 90%;
+    --ring: 217.2 91.2% 59.8%; /* Ring color same as primary */
+    --chart-1: 217.2 91.2% 59.8%; /* Blue */
+    --chart-2: 180 70% 45%; /* Teal */
+    --chart-3: 30 90% 60%; /* Orange */
+    --chart-4: 270 80% 65%; /* Purple */
+    --chart-5: 0 0% 60%; /* Neutral Gray */
+    --radius: 0.5rem;
+
+    /* Sidebar specific theme */
+    --sidebar-background: 240 5% 96%; /* Light gray background for sidebar */
+    --sidebar-foreground: 240 10% 20%; /* Dark gray text for sidebar */
+    --sidebar-primary: 217.2 91.2% 59.8%; /* Blue for active/primary items */
+    --sidebar-primary-foreground: 0 0% 98%; /* White text on primary items */
+    --sidebar-accent: 240 5% 90%; /* Slightly darker gray for hover/accent */
+    --sidebar-accent-foreground: 240 10% 10%; /* Darker text on accent */
+    --sidebar-border: 240 5% 85%; /* Border color for sidebar elements */
+    --sidebar-ring: 217.2 91.2% 59.8%; /* Ring color, same as primary */
+  }
+
+  .dark {
+    --background: 240 10% 3.9%; /* Dark background - Almost Black */
+    --foreground: 0 0% 98%; /* Dark foreground - Light Gray/White */
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217.2 91.2% 59.8%; /* Vivid Blue (can remain same or adjust for dark) */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 240 3.7% 15.9%; /* Dark Gray */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%; /* Lighter Medium Gray */
+    --accent: 210 90% 50%; /* Slightly muted Blue for dark accents */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 40.6%; /* Adjusted destructive for dark */
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%; /* Dark Gray border */
+    --input: 240 3.7% 15.9%;
+    --ring: 217.2 91.2% 59.8%;
+    --chart-1: 217.2 91.2% 59.8%;
+    --chart-2: 180 70% 55%;
+    --chart-3: 30 90% 70%;
+    --chart-4: 270 80% 75%;
+    --chart-5: 0 0% 70%;
+
+    /* Sidebar specific theme for dark mode */
+    --sidebar-background: 240 6% 10%; /* Darker gray for sidebar background */
+    --sidebar-foreground: 0 0% 80%; /* Lighter gray text for sidebar */
+    --sidebar-primary: 217.2 91.2% 59.8%; /* Blue for active/primary items */
+    --sidebar-primary-foreground: 0 0% 98%; /* White text on primary items */
+    --sidebar-accent: 240 4% 16%; /* Slightly lighter dark gray for hover/accent */
+    --sidebar-accent-foreground: 0 0% 95%; /* Lighter text on accent */
+    --sidebar-border: 240 4% 13%; /* Border color for sidebar elements */
+    --sidebar-ring: 217.2 91.2% 59.8%; /* Ring color, same as primary */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
