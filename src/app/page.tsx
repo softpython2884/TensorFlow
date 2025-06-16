@@ -1,3 +1,4 @@
+// src/app/page.tsx
 "use client";
 
 import { useEffect } from 'react';
@@ -6,18 +7,18 @@ import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isCheckingAuthSession } = useAuth(); // Use isCheckingAuthSession
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
+    if (!isCheckingAuthSession) { // Wait for session check to complete
       if (isAuthenticated) {
         router.replace('/dashboard');
       } else {
         router.replace('/login');
       }
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, isCheckingAuthSession, router]);
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-background">

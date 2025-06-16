@@ -23,9 +23,9 @@ export interface User {
   lastLogin?: string; // ISO date string
 }
 
-// This type is for the server-side representation, including the password
+// This type is for the server-side representation, including the hashed password
 export interface UserWithPassword extends User {
-  password?: string; // Password should ideally be hashed
+  password?: string; // Hashed password
 }
 
 export interface NavItem {
@@ -95,3 +95,17 @@ export interface KanbanColumn {
   title: TaskStatus;
   tasks: Task[];
 }
+
+// Schema for Login based on PANDA guide
+export const LoginSchema = z.object({
+  email: z.string().email({ message: "Invalid email address." }),
+  password: z.string().min(1, { message: "Password is required." }),
+});
+export type LoginInput = z.infer<typeof LoginSchema>;
+
+export const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || "your-fallback-secret-key-for-development"; // Fallback only for dev
+if (process.env.NODE_ENV === 'production' && JWT_SECRET_KEY === "your-fallback-secret-key-for-development") {
+  console.warn("WARNING: JWT_SECRET_KEY is not set in production environment. Using default insecure key.");
+}
+
+export const TOKEN_COOKIE_NAME = "panda_session_token";

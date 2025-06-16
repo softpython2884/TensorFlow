@@ -1,91 +1,115 @@
+// src/contexts/auth-context.tsx
 "use client";
 
-import type { User } from '@/lib/types';
+import type { User, LoginInput } from '@/lib/types'; // LoginInput from types now
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { authenticateUser } from '@/lib/auth.actions'; 
+import { useToast } from "@/hooks/use-toast";
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  login: (credentials: LoginInput) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
   loading: boolean;
   isAuthenticated: boolean;
+  isCheckingAuthSession: boolean; // New state for initial session check
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // For login/logout operations
+  const [isCheckingAuthSession, setIsCheckingAuthSession] = useState(true); // True on initial load
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Tente de charger l'utilisateur depuis localStorage au démarrage
-    try {
-      const storedUser = localStorage.getItem('tensorflow-user');
-      if (storedUser) {
-        const parsedUser: User = JSON.parse(storedUser);
-        setUser(parsedUser);
+    // Check session on initial load
+    const checkUserSession = async () => {
+      setIsCheckingAuthSession(true);
+      try {
+        const res = await fetch('/api/auth/me'); // BFF endpoint
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Error checking user session:", error);
+        setUser(null);
+      } finally {
+        setIsCheckingAuthSession(false);
       }
-    } catch (error) {
-      console.error("Erreur lors de la lecture de l'utilisateur depuis localStorage", error);
-      localStorage.removeItem('tensorflow-user');
-    }
-    setLoading(false);
+    };
+    checkUserSession();
   }, []);
 
-  const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (credentials: LoginInput): Promise<{ success: boolean; error?: string }> => {
     setLoading(true);
-    const result = await authenticateUser(email, password); 
-    
-    if (result.user) {
-      // Assure que le nom est correctement formaté et lastLogin est mis à jour
-      const userToStore: User = {
-        ...result.user,
-        name: (result.user.firstName && result.user.lastName) 
-              ? `${result.user.firstName} ${result.user.lastName}` 
-              : result.user.name || result.user.email,
-        lastLogin: new Date().toISOString() // Mettre à jour lastLogin ici aussi pour le contexte
-      };
-      
-      setUser(userToStore);
-      try {
-        localStorage.setItem('tensorflow-user', JSON.stringify(userToStore));
-      } catch (error) {
-        console.error("Erreur lors de la sauvegarde de l'utilisateur dans localStorage", error);
+    try {
+      const res = await fetch('/api/auth/login', { // BFF endpoint
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.user) {
+        const userToStore: User = {
+            ...data.user,
+            name: (data.user.firstName && data.user.lastName) 
+                  ? `${data.user.firstName} ${data.user.lastName}` 
+                  : data.user.name || data.user.email,
+            // lastLogin is now handled by the Pod API upon successful login
+        };
+        setUser(userToStore);
+        setLoading(false);
+        router.push('/dashboard');
+        return { success: true };
+      } else {
+        setUser(null);
+        setLoading(false);
+        toast({
+            title: "Login Failed",
+            description: data.error || "An unknown error occurred.",
+            variant: "destructive",
+        });
+        return { success: false, error: data.error || "Login failed" };
       }
-      setLoading(false);
-      router.push('/dashboard');
-      return { success: true };
-    } else {
+    } catch (error) {
+      console.error("Login API call failed:", error);
       setUser(null);
-      try {
-        localStorage.removeItem('tensorflow-user');
-      } catch (error) {
-        console.error("Erreur lors de la suppression de l'utilisateur de localStorage après échec de connexion", error);
-      }
       setLoading(false);
-      return { success: false, error: result.error };
+      toast({
+        title: "Login Error",
+        description: "Could not connect to the server.",
+        variant: "destructive",
+      });
+      return { success: false, error: "Network error or server unavailable" };
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     setLoading(true);
-    setUser(null);
     try {
-      localStorage.removeItem('tensorflow-user');
+      await fetch('/api/auth/logout', { method: 'POST' }); // BFF endpoint
     } catch (error) {
-      console.error("Erreur lors de la suppression de l'utilisateur de localStorage", error);
+      console.error("Logout API call failed:", error);
+      // Still proceed with client-side logout
+    } finally {
+      setUser(null);
+      setLoading(false);
+      router.push('/login');
     }
-    setLoading(false);
-    router.push('/login');
   };
   
   const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated, isCheckingAuthSession }}>
       {children}
     </AuthContext.Provider>
   );
@@ -94,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth doit être utilisé à l\'intérieur d\'un AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

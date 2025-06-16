@@ -1,9 +1,9 @@
+// src/app/login/page.tsx
 "use client";
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -17,52 +17,58 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import { Loader2, Layers } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+// LoginSchema and LoginInput are now sourced from lib/schemas to align with PANDA guide
+import { LoginSchema, type LoginInput } from "@/lib/schemas"; 
+import { useRouter } from "next/navigation";
 
-
-const loginSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const { login, loading: authLoading } = useAuth();
+  const { login, loading: authLoading, isAuthenticated, isCheckingAuthSession } = useAuth();
   const [isMounted, setIsMounted] = React.useState(false);
-  const { toast } = useToast();
+  const router = useRouter();
 
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  React.useEffect(() => {
+    if (!isCheckingAuthSession && isAuthenticated) {
+      router.replace('/dashboard');
+    }
+  }, [isAuthenticated, isCheckingAuthSession, router]);
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+
+  const form = useForm<LoginInput>({
+    resolver: zodResolver(LoginSchema),
     defaultValues: {
       email: "",
       password: "",
     },
   });
 
-  async function onSubmit(values: LoginFormValues) {
-    const result = await login(values.email, values.password);
-    if (!result.success && result.error) {
-      toast({
-        title: "Login Failed",
-        description: result.error,
-        variant: "destructive",
-      });
-    }
+  async function onSubmit(values: LoginInput) {
+    // login function in AuthContext now handles toasting errors
+    await login(values);
+    // No need to check result here for toast, AuthContext handles it
   }
 
-  if (!isMounted) {
+  if (!isMounted || isCheckingAuthSession) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
+  
+  if (isAuthenticated) { // Additional check to prevent rendering login if already authenticated
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-2">Redirecting to dashboard...</p>
+      </div>
+    );
+  }
+
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background to-secondary p-4">

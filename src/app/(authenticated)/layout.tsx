@@ -1,3 +1,4 @@
+// src/app/(authenticated)/layout.tsx
 "use client";
 
 import React, { useEffect } from 'react';
@@ -14,16 +15,16 @@ export default function AuthenticatedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, loading, user } = useAuth();
+  const { isAuthenticated, isCheckingAuthSession, user } = useAuth(); // Use isCheckingAuthSession
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (!isCheckingAuthSession && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, isCheckingAuthSession, router]);
 
-  if (loading || !isAuthenticated) {
+  if (isCheckingAuthSession || !isAuthenticated) { // Check isCheckingAuthSession first
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
