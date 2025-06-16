@@ -3,7 +3,7 @@ import { z } from "zod";
 import path from 'path'; // Import path for DB_PATH
 
 // --- User Roles ---
-export const UserRoleSchema = z.enum(['FREE', 'PREMIUM', 'PREMIUM_PLUS', 'ENDIUM', 'ADMIN', 'Owner']);
+export const UserRoleSchema = z.enum(['FREE', 'PREMIUM', 'PREMIUM_PLUS', 'ENDIUM', 'ADMIN', 'Owner', 'Project Manager', 'Moderator', 'Developer', 'Builder', 'Designer', 'Community Manager', 'Viewer']);
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
 export const UserRoleDisplayConfig: Record<UserRole, { label: string; className: string }> = {
@@ -11,8 +11,15 @@ export const UserRoleDisplayConfig: Record<UserRole, { label: string; className:
   PREMIUM: { label: "Premium Tier", className: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-700 dark:text-blue-100 dark:border-blue-500" },
   PREMIUM_PLUS: { label: "Premium+ Tier", className: "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-700 dark:text-purple-100 dark:border-purple-500" },
   ENDIUM: { label: "Endium Tier", className: "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-600 dark:text-yellow-100 dark:border-yellow-500" },
-  ADMIN: { label: "Administrator", className: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-700 dark:text-orange-100 dark:border-orange-500" }, // Changed from red to orange for admin
+  ADMIN: { label: "Administrator", className: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-700 dark:text-orange-100 dark:border-orange-500" },
   Owner: { label: "Owner", className: "bg-primary text-primary-foreground border-primary/50" },
+  'Project Manager': { label: "Project Manager", className: "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-700 dark:text-teal-100 dark:border-teal-500" },
+  Moderator: { label: "Moderator", className: "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-700 dark:text-cyan-100 dark:border-cyan-500" },
+  Developer: { label: "Developer", className: "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-700 dark:text-indigo-100 dark:border-indigo-500" },
+  Builder: { label: "Builder", className: "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-700 dark:text-lime-100 dark:border-lime-500" },
+  Designer: { label: "Designer", className: "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-700 dark:text-pink-100 dark:border-pink-500" },
+  'Community Manager': { label: "Community Manager", className: "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-700 dark:text-sky-100 dark:border-sky-500" },
+  Viewer: { label: "Viewer", className: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-500" },
 };
 
 // --- Password Strength ---
@@ -29,7 +36,7 @@ export const UserRegistrationSchema = z.object({
   password: strongPassword,
   firstName: z.string().max(50, "First name must be 50 characters or less.").optional().nullable(),
   lastName: z.string().max(50, "Last name must be 50 characters or less.").optional().nullable(),
-  // role: UserRoleSchema.optional().default('FREE'), // Role assigned by admin or default
+  // role is not set during general registration; defaults to 'FREE' in DB or assigned by admin
 });
 export type UserRegistrationInput = z.infer<typeof UserRegistrationSchema>;
 
@@ -52,7 +59,7 @@ export const UserProfileUpdateSchema = z.object({
     firstName: z.string().max(50, "First name must be 50 characters or less.").optional().nullable(),
     lastName: z.string().max(50, "Last name must be 50 characters or less.").optional().nullable(),
     avatarUrl: z.string().url("Invalid URL for avatar").optional().nullable(),
-    tags: z.array(z.string()).optional().nullable(), // Example if tags are managed directly
+    tags: z.array(z.string().max(20, "Tag too long")).max(10, "Too many tags").optional().nullable(),
 });
 export type UserProfileUpdateInput = z.infer<typeof UserProfileUpdateSchema>;
 
@@ -115,7 +122,6 @@ export const TOKEN_COOKIE_NAME = "tensorflow_session_token";
 export const MAX_AGE_COOKIE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 // --- API Token Schemas ---
-// (Can be moved from PANDA's schemas.ts if needed, simplified for now)
 export const ApiTokenCreateSchema = z.object({
     name: z.string().min(3, "Token name must be at least 3 characters").max(50, "Token name too long"),
     expiresAt: z.date().optional().nullable(),
@@ -130,4 +136,4 @@ export const ApiTokenDisplaySchema = z.object({
     expiresAt: z.string().datetime().nullable(),
     createdAt: z.string().datetime(),
 });
-export type ApiTokenDisplay = z.infer<typeof ApiTokenDisplaySchema>;
+export type ApiTokenDisplay = z

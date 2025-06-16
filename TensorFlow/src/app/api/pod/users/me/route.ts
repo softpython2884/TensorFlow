@@ -40,6 +40,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ user: finalUserObject });
   } catch (error) {
     console.error('Pod /me error:', error);
-    return NextResponse.json({ error: 'Internal server error fetching user profile' }, { status: 500 });
-  }
-}
+    return NextResponse.json({ error: '

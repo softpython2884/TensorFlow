@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, updateUserProfile } from '@/lib/auth';
 import { UserProfileUpdateSchema } from '@/lib/schemas';

@@ -1,4 +1,3 @@
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifyTokenEdge } from '@/lib/auth-edge'; 
 import { TOKEN_COOKIE_NAME } from '@/lib/schemas';
@@ -20,6 +19,7 @@ const ADMIN_ONLY_PATHS = ['/admin']; // Specific admin section paths
 
 const PUBLIC_PATHS = [
   '/login',
+  '/register', // Allow access to register page
   '/setup-initial-admin', // Allow access to the secret admin setup page
 ];
 
@@ -41,7 +41,7 @@ export async function middleware(req: NextRequest) {
     const user = await verifyTokenEdge<User>(tokenCookie.value);
     if (user) {
       // User is authenticated
-      if (pathname === '/login' || pathname === '/') {
+      if (pathname === '/login' || pathname === '/register' || pathname.startsWith('/setup-initial-admin') || pathname === '/') {
         return NextResponse.redirect(new URL('/dashboard', req.url));
       }
       const isAdminPath = ADMIN_ONLY_PATHS.some(p => pathname.startsWith(p));

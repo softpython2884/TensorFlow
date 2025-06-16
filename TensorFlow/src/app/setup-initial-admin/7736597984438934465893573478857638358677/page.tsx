@@ -267,7 +267,4 @@ export default function SetupInitialAdminPage() {
             </Button>
           </p>
         </CardContent>
-      </Card>
-    </main>
-  );
-}
+      </Card

@@ -1,4 +1,3 @@
-
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
@@ -47,7 +46,7 @@ async function initializeSchema() {
         firstName TEXT,
         lastName TEXT,
         password_hash TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'FREE' CHECK(role IN ('FREE', 'PREMIUM', 'PREMIUM_PLUS', 'ENDIUM', 'ADMIN', 'Owner')),
+        role TEXT NOT NULL DEFAULT 'FREE' CHECK(role IN ('FREE', 'PREMIUM', 'PREMIUM_PLUS', 'ENDIUM', 'ADMIN', 'Owner', 'Project Manager', 'Moderator', 'Developer', 'Builder', 'Designer', 'Community Manager', 'Viewer')),
         avatarUrl TEXT,
         tags TEXT, -- Stored as JSON string array "[\"tag1\", \"tag2\"]"
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -58,7 +57,7 @@ async function initializeSchema() {
     // Create default admin/owner user if ADMIN_EMAIL is set in ENV and user doesn't exist
     const adminEmail = ENV.ADMIN_EMAIL;
     if (adminEmail) {
-      const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
+      const existingAdmin = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail.toLowerCase());
       if (!existingAdmin) {
         try {
           const adminPassword = ENV.ADMIN_PASSWORD || "@Banane123"; // Fallback default password
@@ -74,7 +73,7 @@ async function initializeSchema() {
              VALUES (?, ?, ?, ?, ?, ?, ?)`
           ).run(
             adminId, 
-            adminEmail, 
+            adminEmail.toLowerCase(), 
             adminUsername, 
             adminFirstName, 
             adminLastName, 

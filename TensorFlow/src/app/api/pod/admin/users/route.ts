@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getAllUsers } from '@/lib/auth';
 import type { User } from '@/lib/types';

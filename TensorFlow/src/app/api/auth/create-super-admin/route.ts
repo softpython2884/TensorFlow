@@ -36,6 +36,4 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid input', details: error.flatten() }, { status: 400 });
     }
     console.error('BFF Super Admin Creation error:', error);
-    return NextResponse.json({ error: 'Internal Server Error in BFF for super admin creation' }, { status: 500 });
-  }
-}
+    return NextResponse.json({ error: 'Internal Server Error in BFF for super admin creation' }, { status:

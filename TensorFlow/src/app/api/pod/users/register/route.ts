@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createUser, generateToken } from '@/lib/auth';
 import { UserRegistrationSchema, type UserRole } from '@/lib/schemas';
@@ -13,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid input", details: validation.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    // For now, general registration creates 'FREE' users.
+    // General registration creates 'FREE' users.
     // Admin creation is handled by a separate endpoint or initial DB setup.
     const newUserData = { ...validation.data, role: 'FREE' as UserRole };
     const newUser = await createUser(newUserData);

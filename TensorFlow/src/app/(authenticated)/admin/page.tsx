@@ -53,7 +53,7 @@ export default function AdminPage() {
             setUserRolesData(chartData);
 
             const chartConfig = chartData.reduce((config, item) => {
-                config[item.role.toLowerCase().replace(/\s+/g, '')] = { label: item.role, color: item.fill };
+                config[item.role.toLowerCase().replace(/\s+/g, '').replace(/\+/g, 'plus')] = { label: item.role, color: item.fill };
                 return config;
             }, {} as ChartConfig);
             setUserRolesChartConfig(chartConfig);
@@ -152,6 +152,3 @@ export default function AdminPage() {
             </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}

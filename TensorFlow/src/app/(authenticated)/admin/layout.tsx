@@ -1,4 +1,3 @@
-
 "use client";
 // This layout is now effectively handled by the MainSidebar within the root (authenticated) layout.
 // The MainSidebar will show admin-specific links if the user is an admin.

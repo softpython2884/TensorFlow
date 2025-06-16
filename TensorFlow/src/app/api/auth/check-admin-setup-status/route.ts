@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { ENV } from '@/lib/schemas';
 import { countOwners } from '@/lib/auth'; // Assuming db interaction is in auth.ts for now

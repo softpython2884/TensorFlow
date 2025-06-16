@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -185,7 +184,7 @@ export function UserProfileForm() {
                 <FormItem>
                   <FormLabel className="flex items-center gap-1"><ImageIcon className="h-4 w-4"/>Avatar URL (Optional)</FormLabel>
                   <FormControl>
-                    <Input type="url" placeholder="https://example.com/avatar.png" {...field} value={field.value || ""} />
+                    <Input type="url" placeholder="https://placehold.co/avatar.png" {...field} value={field.value || ""} />
                   </FormControl>
                   <FormDescription>Link to your profile picture.</FormDescription>
                   <FormMessage />

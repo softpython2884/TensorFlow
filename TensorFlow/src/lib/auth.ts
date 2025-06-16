@@ -1,11 +1,10 @@
-
 import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import type { NextRequest } from 'next/server';
-import type { UserRole, UserRegistrationInput, UserProfileUpdateInput } from './schemas';
-import { ENV, TOKEN_COOKIE_NAME, MAX_AGE_COOKIE_SECONDS } from './schemas';
+import type { UserRole, UserRegistrationInput, UserProfileUpdateInput, SuperAdminCreationInput } from './schemas';
+import { ENV, TOKEN_COOKIE_NAME } from './schemas';
 import db from './db';
-import type { User, UserWithPassword } from './types'; // User and UserWithPassword types
+import type { User, UserWithPassword } from './types';
 
 const JWT_SECRET_UINT8ARRAY = new TextEncoder().encode(ENV.JWT_SECRET);
 const SALT_ROUNDS = 10;
@@ -42,7 +41,7 @@ export async function verifyToken<T extends object = User>(token: string): Promi
 export async function findUserByEmail(email: string): Promise<UserWithPassword | null> {
   try {
     const stmt = db.prepare('SELECT id, email, username, firstName, lastName, password_hash, role, avatarUrl, tags, lastLogin, created_at FROM users WHERE email = ?');
-    const user = stmt.get(email.toLowerCase()) as UserWithPassword | undefined; // Store and check emails in lowercase
+    const user = stmt.get(email.toLowerCase()) as UserWithPassword | undefined;
     return user || null;
   } catch (error) {
     console.error("SQLite Error (findUserByEmail):", error);
@@ -61,18 +60,18 @@ export async function findUserById(id: string): Promise<UserWithPassword | null>
   }
 }
 
-export async function createUser(data: UserRegistrationInput | (UserRegistrationInput & { role: UserRole })): Promise<UserWithPassword> {
+export async function createUser(data: UserRegistrationInput | SuperAdminCreationInput): Promise<UserWithPassword> {
   const { email, username, password, firstName, lastName } = data;
-  const role = 'role' in data ? data.role : 'FREE'; // Default to 'FREE' if not specified
+  const role = 'role' in data && data.role ? data.role : 'FREE'; // Default to 'FREE' if not specified (e.g. super admin creation)
 
   const hashedPassword = await hashPassword(password);
   const userId = crypto.randomUUID();
   
   try {
     const stmt = db.prepare(
-      'INSERT INTO users (id, email, username, firstName, lastName, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))'
+      'INSERT INTO users (id, email, username, firstName, lastName, password_hash, role, created_at, tags, avatarUrl) VALUES (?, ?, ?, ?, ?, ?, ?, datetime(\'now\'), ?, ?)'
     );
-    stmt.run(userId, email.toLowerCase(), username || null, firstName || null, lastName || null, hashedPassword, role);
+    stmt.run(userId, email.toLowerCase(), username || null, firstName || null, lastName || null, hashedPassword, role, JSON.stringify([]), null); // Default empty tags array and null avatar
     
     const newUser = await findUserById(userId);
     if (!newUser) throw new Error("Failed to retrieve newly created user.");
@@ -127,7 +126,7 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<Us
          return {
             ...updatedUser,
             name: (updatedUser.firstName || updatedUser.lastName) ? `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() : updatedUser.username || updatedUser.email,
-            tags: updatedUser.tags ? JSON.parse(updatedUser.tags) : [],
+            tags: updatedUser.tags ? JSON.parse(updatedUser.tags as string) : [],
         };
     } catch (error) {
         console.error("SQLite Error (updateUserRole):", error);
@@ -169,7 +168,7 @@ export async function updateUserProfile(userId: string, data: UserProfileUpdateI
       return {
         ...currentUser,
         name: (currentUser.firstName || currentUser.lastName) ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : currentUser.username || currentUser.email,
-        tags: currentUser.tags ? JSON.parse(currentUser.tags) : [],
+        tags: currentUser.tags ? JSON.parse(currentUser.tags as string) : [],
       };
     }
 
@@ -193,7 +192,7 @@ export async function updateUserProfile(userId: string, data: UserProfileUpdateI
         return {
             ...updatedUser,
             name: (updatedUser.firstName || updatedUser.lastName) ? `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() : updatedUser.username || updatedUser.email,
-            tags: updatedUser.tags ? JSON.parse(updatedUser.tags) : [],
+            tags: updatedUser.tags ? JSON.parse(updatedUser.tags as string) : [],
         };
     } catch (error) {
         console.error("SQLite Error (updateUserProfile):", error);
@@ -204,6 +203,15 @@ export async function updateUserProfile(userId: string, data: UserProfileUpdateI
     }
 }
 
+export async function countOwners(): Promise<number> {
+  try {
+    const result = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'Owner'").get() as { count: number };
+    return result.count;
+  } catch (error) {
+    console.error("SQLite Error (countOwners):", error);
+    return 0; // Default to 0 on error, implying no owners found or DB issue
+  }
+}
 // --- End SQLite Integrated User Functions ---
 
 export async function getUserFromRequest(request: NextRequest): Promise<User | null> {
@@ -225,14 +233,4 @@ export async function getJwtFromRequest(request: NextRequest): Promise<string | 
         return cookieToken.value;
     }
     return null;
-}
-
-export async function countOwners(): Promise<number> {
-  try {
-    const result = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'Owner'").get() as { count: number };
-    return result.count;
-  } catch (error) {
-    console.error("SQLite Error (countOwners):", error);
-    return 0; // Default to 0 on error, implying no owners found or DB issue
-  }
 }

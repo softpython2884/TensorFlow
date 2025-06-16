@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
       } else {
         setUser(null);
-        if (res.status === 401 && !isInitialCheck && !['/login', '/setup-initial-admin'].some(p => pathname.startsWith(p))) {
+        if (res.status === 401 && !isInitialCheck && !['/login', '/register', '/setup-initial-admin'].some(p => pathname.startsWith(p))) {
           // If session becomes invalid during app use, redirect to login
           router.push('/login');
         }
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok && data.user) {
         setUser(data.user);
         setLoading(false);
-        toast({ title: "Login Successful", description: `Welcome back, ${data.user.name}!`});
+        toast({ title: "Login Successful", description: `Welcome back, ${data.user.name || data.user.username}!`});
         
         const redirectPath = new URLSearchParams(window.location.search).get('redirect') || '/dashboard';
         router.push(redirectPath);
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok && data.user) {
         setUser(data.user); // Auto-login after registration
         setLoading(false);
-        toast({ title: "Registration Successful", description: `Welcome, ${data.user.name}! You are now logged in.` });
+        toast({ title: "Registration Successful", description: `Welcome, ${data.user.name || data.user.username}! You are now logged in.` });
         router.push('/dashboard');
         return { success: true, user: data.user };
       } else {

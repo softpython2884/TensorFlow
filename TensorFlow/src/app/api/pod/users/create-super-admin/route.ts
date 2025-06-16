@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createUser, countOwners } from '@/lib/auth';
 import { SuperAdminCreationSchema, ENV } from '@/lib/schemas';
