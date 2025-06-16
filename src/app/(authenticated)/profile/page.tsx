@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserAvatar } from "@/components/user-avatar";
-import { Edit3, Save, Mail, Shield } from "lucide-react";
+import { Edit3, Save, Mail, Shield, UserCircle } from "lucide-react"; // Added UserCircle
 import { useState } from "react";
 
 export default function ProfilePage() {
@@ -32,8 +32,7 @@ export default function ProfilePage() {
       <PageHeader
         title="My Profile"
         description="View and manage your personal information."
-        icon={UserAvatar} // This won't work directly, PageHeader expects LucideIcon. Using a generic one.
-        // icon={UserCircle} // Alternative if UserAvatar is not directly usable
+        icon={UserCircle} // Changed from UserAvatar to UserCircle
         actions={
             !isEditing ? (
                 <Button onClick={() => setIsEditing(true)}>

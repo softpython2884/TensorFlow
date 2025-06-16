@@ -6,6 +6,7 @@ import { FileLibraryView } from "@/components/shared/file-library-view";
 import { KnowledgeBaseView } from "@/components/shared/knowledge-base-view";
 import type { SharedFile, KnowledgeBaseArticle, User } from "@/lib/types";
 import { Library, FileText, BookOpen, Shapes } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const mockUsers: User[] = [
   { id: '1', name: 'Taylor Flow', email: 'taylor@example.com', role: 'Owner', avatarUrl: 'https://placehold.co/40x40.png' },
@@ -15,7 +16,7 @@ const mockUsers: User[] = [
 const mockFiles: SharedFile[] = [
   { id: "sf1", name: "Company Brand Guidelines.pdf", type: "PDF", size: "2.5MB", uploadedBy: mockUsers[0], uploadDate: new Date(Date.now() - 1000*60*60*24*2).toISOString(), url: "#" },
   { id: "sf2", name: "Reusable UI Components.zip", type: "ZIP", size: "22MB", uploadedBy: mockUsers[1], uploadDate: new Date(Date.now() - 1000*60*60*24*5).toISOString(), url: "#" },
-  { id: "sf3", name: "Marketing Assets Q3.png", type: "Image", size: "800KB", uploadedBy: mockUsers[0], uploadDate: new Date(Date.now() - 1000*60*60*24).toISOString(), url: "https://placehold.co/600x400.png" },
+  { id: "sf3", name: "Marketing Assets Q3.png", type: "Image", size: "800KB", uploadedBy: mockUsers[0], uploadDate: new Date(Date.now() - 1000*60*60*24).toISOString(), url: "https://placehold.co/600x400.png", "data-ai-hint": "marketing assets" },
 ];
 
 const mockArticles: KnowledgeBaseArticle[] = [
@@ -50,7 +51,6 @@ export default function SharedResourcesPage() {
           <KnowledgeBaseView articles={mockArticles} />
         </TabsContent>
         <TabsContent value="snippets">
-            {/* Placeholder for Code Snippets */}
             <Card>
                 <CardHeader>
                     <CardTitle>Shared Code Snippets</CardTitle>
