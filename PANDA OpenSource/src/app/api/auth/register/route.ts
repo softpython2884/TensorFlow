@@ -1,26 +1,23 @@
 
-import { NextResponse, type NextRequest } from 'next/server';
-import { UserRegistrationSchema } from '@/lib/schemas';
+import { NextRequest, NextResponse } from 'next/server';
+import { UserRegistrationSchema, ENV, TOKEN_COOKIE_NAME, MAX_AGE_COOKIE_SECONDS } from '@/lib/schemas';
 import { ZodError } from 'zod';
-import { serialize } from 'cookie';
 
-const POD_API_URL = process.env.POD_API_URL || 'http://localhost:9002';
+const POD_API_URL = ENV.NEXT_PUBLIC_APP_URL;
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const validationResult = UserRegistrationSchema.safeParse(body);
+    const body = await req.json();
+    const validation = UserRegistrationSchema.safeParse(body);
 
-    if (!validationResult.success) {
-      return NextResponse.json({ error: 'Invalid input', details: validationResult.error.flatten() }, { status: 400 });
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Invalid input', details: validation.error.flatten().fieldErrors }, { status: 400 });
     }
     
-    const { username, email, password } = validationResult.data;
-
     const podResponse = await fetch(`${POD_API_URL}/api/pod/users/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify(validation.data),
     });
 
     const podData = await podResponse.json();
@@ -29,23 +26,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: podData.error || 'Registration failed at Pod' }, { status: podResponse.status });
     }
 
-    const { token, user } = podData; // Pod now returns token and user object
+    const { token, user } = podData; 
 
     if (!token || !user) {
         return NextResponse.json({ error: 'Registration successful, but failed to establish session.' }, { status: 500 });
     }
 
-    // Set HttpOnly cookie for session
-    const cookie = serialize('panda_session_token', token, {
+    const response = NextResponse.json({ message: 'Registration successful and logged in.', user }, { status: 201 }); 
+    response.cookies.set({
+      name: TOKEN_COOKIE_NAME,
+      value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      maxAge: MAX_AGE_COOKIE_SECONDS,
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
+      sameSite: 'lax',
     });
-
-    const response = NextResponse.json({ message: 'Registration successful and logged in.', user }, { status: 201 }); 
-    response.headers.set('Set-Cookie', cookie);
     return response;
 
   } catch (error) {
@@ -53,6 +49,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid input', details: error.flatten() }, { status: 400 });
     }
     console.error('BFF Registration error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error in BFF registration' }, { status: 500 });
   }
 }

@@ -1,78 +1,41 @@
 
-import { NextResponse, type NextRequest } from 'next/server';
-import { UserProfileUpdateSchema } from '@/lib/schemas';
+import { NextRequest, NextResponse } from 'next/server';
+import { getUserFromRequest } from '@/lib/auth';
+import { UserProfileUpdateSchema, ENV, TOKEN_COOKIE_NAME } from '@/lib/schemas'; // Updated imports
 import { ZodError } from 'zod';
-import { verifyToken } from '@/lib/auth-edge'; // Using auth-edge for middleware-like token verification
 
-const POD_API_URL = process.env.POD_API_URL || 'http://localhost:9002';
-const AUTH_COOKIE_NAME = 'panda_session_token';
+const POD_API_URL = ENV.NEXT_PUBLIC_APP_URL;
 
-async function getSessionToken(request: NextRequest): Promise<string | null> {
-  const cookie = request.cookies.get(AUTH_COOKIE_NAME);
-  return cookie?.value || null;
-}
-
-// GET current user's profile
-export async function GET(request: NextRequest) {
-  const sessionToken = await getSessionToken(request);
-  if (!sessionToken) {
-    return NextResponse.json({ error: 'Unauthorized: Missing session token' }, { status: 401 });
-  }
-
-  // The /api/auth/me route already fetches full profile from Pod, so we can call it.
-  // Alternatively, we could call /api/pod/users/me directly if we handle token verification here.
-  // For consistency with how the app loads user data, let's proxy through /api/auth/me logic.
-  // However, /api/auth/me is also a BFF route. Calling BFF from BFF can be complex.
-  // It's better to call the Pod directly if this route is protected and knows how to pass the token.
-
-  const decodedUser = await verifyToken<{id: string}>(sessionToken);
-   if (!decodedUser || !decodedUser.id) {
-    return NextResponse.json({ error: 'Unauthorized: Invalid session token' }, { status: 401 });
-  }
-
-  try {
-    const podResponse = await fetch(`${POD_API_URL}/api/pod/users/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${sessionToken}`,
-        'Content-Type': 'application/json',
-      },
+export async function GET(req: NextRequest) {
+    const meResponse = await fetch(new URL('/api/auth/me', req.url), {
+        headers: {
+            'Cookie': req.headers.get('Cookie') || '', 
+        }
     });
-
-    const podData = await podResponse.json();
-
-    if (!podResponse.ok) {
-      return NextResponse.json({ error: podData.error || 'Failed to fetch profile from Pod' }, { status: podResponse.status });
-    }
-    return NextResponse.json(podData.user); // Return just the user object
-
-  } catch (error) {
-    console.error('BFF Get Profile error:', error);
-    return NextResponse.json({ error: 'Internal server error while fetching profile' }, { status: 500 });
-  }
+    const data = await meResponse.json();
+    return NextResponse.json(data, { status: meResponse.status });
 }
 
-
-// PUT update user's profile
-export async function PUT(request: NextRequest) {
-  const sessionToken = await getSessionToken(request);
-  if (!sessionToken) {
-    return NextResponse.json({ error: 'Unauthorized: Missing session token' }, { status: 401 });
-  }
-  
-  const decodedUser = await verifyToken<{id: string}>(sessionToken);
-   if (!decodedUser || !decodedUser.id) {
-    return NextResponse.json({ error: 'Unauthorized: Invalid session token' }, { status: 401 });
+export async function PUT(req: NextRequest) {
+  const userFromSession = await getUserFromRequest(req);
+  if (!userFromSession) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const body = await request.json();
-    const validationResult = UserProfileUpdateSchema.safeParse(body);
+    const body = await req.json();
+    const cleanedBody = Object.fromEntries(Object.entries(body).filter(([_, v]) => v !== undefined));
+    const validationResult = UserProfileUpdateSchema.safeParse(cleanedBody);
 
     if (!validationResult.success) {
       return NextResponse.json({ error: 'Invalid input', details: validationResult.error.flatten() }, { status: 400 });
     }
     
+    const sessionToken = req.cookies.get(TOKEN_COOKIE_NAME)?.value; // Use TOKEN_COOKIE_NAME from ENV
+    if (!sessionToken) {
+        return NextResponse.json({ error: 'Session token missing for Pod request' }, { status: 401 });
+    }
+
     const podResponse = await fetch(`${POD_API_URL}/api/pod/users/me/profile`, {
       method: 'PUT',
       headers: {

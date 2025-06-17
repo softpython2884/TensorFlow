@@ -1,24 +1,24 @@
 
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getUserFromRequest } from '@/lib/auth';
-import { UserRoleSchema } from '@/lib/schemas';
-import { z, ZodError } from 'zod'; // Assurez-vous que z est importé
+import { UserRoleSchema, ENV, TOKEN_COOKIE_NAME } from '@/lib/schemas'; // Updated imports
+import { z, ZodError } from 'zod';
 
-const POD_API_URL = process.env.POD_API_URL || 'http://localhost:9002';
+const POD_API_URL = ENV.NEXT_PUBLIC_APP_URL;
 
-export async function PUT(request: NextRequest, { params }: { params: { userId: string } }) {
-  const adminUser = await getUserFromRequest(request);
-  if (!adminUser || adminUser.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden: Admins only' }, { status: 403 });
+export async function PUT(req: NextRequest, { params }: { params: { userId: string } }) {
+  const requestingAdmin = await getUserFromRequest(req);
+  if (!requestingAdmin || (requestingAdmin.role !== 'ADMIN' && requestingAdmin.role !== 'Owner')) {
+    return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
   }
 
-  const { userId: targetUserId } = params; // params est un objet direct, pas une promesse
+  const { userId: targetUserId } = params;
   if (!targetUserId) {
     return NextResponse.json({ error: 'Target User ID is required' }, { status: 400 });
   }
 
   try {
-    const body = await request.json();
+    const body = await req.json();
     const validationResult = z.object({ role: UserRoleSchema }).safeParse(body);
 
     if (!validationResult.success) {
@@ -26,9 +26,9 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
     }
     const { role } = validationResult.data;
 
-    const sessionToken = request.cookies.get('panda_session_token')?.value;
+    const sessionToken = req.cookies.get(TOKEN_COOKIE_NAME)?.value; // Use TOKEN_COOKIE_NAME from ENV
     if (!sessionToken) {
-        return NextResponse.json({ error: 'Session token missing for Pod request' }, { status: 401 });
+      return NextResponse.json({ error: 'Session token missing for Pod request' }, { status: 401 });
     }
 
     const podResponse = await fetch(`${POD_API_URL}/api/pod/admin/users/${targetUserId}/role`, {

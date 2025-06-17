@@ -1,23 +1,21 @@
 
-import { NextResponse, type NextRequest } from 'next/server';
-import { UserLoginSchema } from '@/lib/schemas';
-import { ZodError } from 'zod';
-import { serialize } from 'cookie';
+import { NextRequest, NextResponse } from 'next/server';
+import { LoginSchema, ENV, TOKEN_COOKIE_NAME, MAX_AGE_COOKIE_SECONDS } from '@/lib/schemas';
+// SignJWT removed as token generation is Pod's responsibility
 
-const POD_API_URL = process.env.POD_API_URL || 'http://localhost:9002';
+const POD_API_URL = ENV.NEXT_PUBLIC_APP_URL;
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const validationResult = UserLoginSchema.safeParse(body);
+    const body = await req.json();
+    const validation = LoginSchema.safeParse(body);
 
-    if (!validationResult.success) {
-      return NextResponse.json({ error: 'Invalid input', details: validationResult.error.flatten() }, { status: 400 });
+    if (!validation.success) {
+      return NextResponse.json({ error: "Invalid input", details: validation.error.flatten().fieldErrors }, { status: 400 });
     }
-    
-    const { email, password } = validationResult.data;
 
-    // Call PANDA Pod API
+    const { email, password } = validation.data;
+    
     const podResponse = await fetch(`${POD_API_URL}/api/pod/users/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -27,30 +25,26 @@ export async function POST(request: NextRequest) {
     const podData = await podResponse.json();
 
     if (!podResponse.ok) {
-      return NextResponse.json({ error: podData.error || 'Login failed at Pod' }, { status: podResponse.status });
+      return NextResponse.json({ error: podData.error || 'Login failed at Pod API' }, { status: podResponse.status });
     }
 
-    const { token, user } = podData; // 'user' should now be the full user object from Pod
+    const { token, user } = podData;
 
-    // Set HttpOnly cookie
-    const cookie = serialize('panda_session_token', token, {
+    const response = NextResponse.json({ user }, { status: 200 });
+    response.cookies.set({
+      name: TOKEN_COOKIE_NAME,
+      value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      maxAge: MAX_AGE_COOKIE_SECONDS,
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
+      sameSite: 'lax',
     });
-
-    // The user object returned here now contains username, firstName, lastName, role
-    const response = NextResponse.json({ message: 'Login successful', user }); 
-    response.headers.set('Set-Cookie', cookie);
+    
     return response;
 
   } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: error.flatten() }, { status: 400 });
-    }
     console.error('BFF Login error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error in BFF' }, { status: 500 });
   }
 }
